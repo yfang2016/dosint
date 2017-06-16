@@ -5,6 +5,7 @@
 ;  Created Time: Mon 12 Jun 2017 10:48:31 AM CST
 ;------------------------------------------------------------------------
 
+.286
 data    SEGMENT
 counter DB      0
 hour    DB      0
@@ -28,12 +29,13 @@ init8259 ENDP
 init8253 PROC
         mov     AL, 00110110B
         out     43H, AL
-        mov     AX, 0
+        mov     AX, 2000h
         out     40H, AL         
         mov     AL, AH
         out     40H, AL
         ret
 init8253 ENDP
+
 print   MACRO   val
         mov     AL, val
         shr     AL, 1
@@ -57,6 +59,8 @@ print   MACRO   val
         ENDM
 
 display PROC
+        mov    AX, data
+        mov    DS, AX
         CLD
         mov     AX, 0B800H
         mov     ES, AX
@@ -72,12 +76,7 @@ display PROC
         ret
 display ENDP
 
-int8    PROC
-        mov     AX, data
-        mov     DS, AX
-        add     counter, 1
-        cmp     counter, 18
-        jz      exitint8
+gettime PROC
         mov     AL, second
         add     AL, 1
         daa
@@ -96,12 +95,26 @@ int8    PROC
         add     AL, 1
         daa
         mov     hour, AL
-
 noadjust:
+        ret
+gettime ENDP
 
+int8    PROC
+        pusha
+        mov     AX, data
+        mov     DS, AX
+        add     counter, 1
+        cmp     counter, 18
+        jl      exitint8
+
+        mov     counter, 0
+        call    gettime
         call    display
 
 exitint8:
+        mov     AL, 20H
+        out     20H, AL
+        popa
         iret
 int8    ENDP
 
@@ -117,6 +130,7 @@ int8_init PROC
         mov     AX, SEG  int8
         xchg    ES:[BX + 2], AX
         mov     word ptr oldint8+2, AX
+        ret
 int8_init ENDP
 
 resetint8 PROC
@@ -124,9 +138,9 @@ resetint8 PROC
         mov     ES, AX
         mov     BX, 8*4
         mov     AX, word ptr oldint8
-        mov     [BX], AX
+        mov     ES:[BX], AX
         mov     AX, word ptr oldint8 +2
-        mov     [BX+2], AX
+        mov     ES:[BX+2], AX
         ret
 resetint8 ENDP
 
